@@ -25,22 +25,37 @@ async function isValid(token: string): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Sólo protegemos rutas /admin (excepto /admin/login que es público)
-  if (!pathname.startsWith('/admin')) return NextResponse.next();
-  if (pathname === '/admin/login') return NextResponse.next();
+  // Rutas siempre públicas
+  if (pathname === '/admin/login' || pathname === '/api/auth/login') {
+    return NextResponse.next();
+  }
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token || !(await isValid(token))) {
-    const response = NextResponse.redirect(
-      new URL('/admin/login', request.url)
-    );
-    if (token) response.cookies.delete(COOKIE_NAME);
-    return response;
+  const valid = token ? await isValid(token) : false;
+
+  // Páginas admin → redirect a login si no hay sesión
+  if (pathname.startsWith('/admin')) {
+    if (!valid) {
+      const response = NextResponse.redirect(
+        new URL('/admin/login', request.url)
+      );
+      if (token && !valid) response.cookies.delete(COOKIE_NAME);
+      return response;
+    }
+    return NextResponse.next();
+  }
+
+  // Endpoints admin → 401 JSON si no hay sesión
+  if (pathname.startsWith('/api/admin')) {
+    if (!valid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };

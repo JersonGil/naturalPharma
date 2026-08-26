@@ -40,11 +40,21 @@ async function createTables(): Promise<void> {
   }
 }
 
+const MIN_ADMIN_PASSWORD_LENGTH = 12;
+
 async function createInitialAdmin(): Promise<string | null> {
   const username = process.env.INITIAL_ADMIN_USER;
   const password = process.env.INITIAL_ADMIN_PASSWORD;
 
   if (!username || !password) return null;
+
+  if (password.length < MIN_ADMIN_PASSWORD_LENGTH) {
+    console.warn(
+      `[setup] INITIAL_ADMIN_PASSWORD tiene menos de ${MIN_ADMIN_PASSWORD_LENGTH} caracteres. ` +
+        `Por seguridad no se creó el admin. Elegí una contraseña más larga y corré de nuevo.`
+    );
+    return null;
+  }
 
   const existing = await query<{ count: number }>(
     'SELECT COUNT(*) as count FROM admins'
